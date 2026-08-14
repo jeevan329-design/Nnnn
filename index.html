@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>SafePath — Know what to do. Know where to go.</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;0,9..40,800;1,9..40,400&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            ink: '#070707',
+            panel: '#121212',
+            raised: '#1A1A1A',
+            line: '#2C2C2C',
+            paper: '#F6F3EC',
+            mute: '#8A8A8A',
+            signal: '#FF2A00',
+            blaze: '#FF5A00',
+            volt: '#E8FF00',
+            ice: '#00E8FF',
+            moss: '#3DFF6E'
+          },
+          fontFamily: {
+            display: ['Bebas Neue', 'Impact', 'sans-serif'],
+            sans: ['DM Sans', 'system-ui', 'sans-serif']
+          },
+          boxShadow: {
+            punch: '6px 6px 0 0 #E8FF00',
+            punchred: '6px 6px 0 0 #FF2A00',
+            punchice: '6px 6px 0 0 #00E8FF'
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    :root { color-scheme: dark; }
+    * { -webkit-tap-highlight-color: transparent; }
+    html, body { background: #070707; }
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      min-height: 100dvh;
+      overflow-x: hidden;
+    }
+    body::before {
+      content: '';
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.028) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.028) 1px, transparent 1px);
+      background-size: 48px 48px;
+      mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 80%);
+    }
+    .grain::after {
+      content: '';
+      pointer-events: none;
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      opacity: 0.045;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    .view { display: none; animation: rise 0.35s ease both; }
+    .view.active { display: block; }
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse-ring {
+      0% { transform: scale(0.85); opacity: 0.8; }
+      100% { transform: scale(1.55); opacity: 0; }
+    }
+    @keyframes blink {
+      0%, 49% { opacity: 1; }
+      50%, 100% { opacity: 0.25; }
+    }
+    @keyframes siren {
+      0%, 100% { box-shadow: 0 0 0 0 rgba(255,42,0,0.55); }
+      50% { box-shadow: 0 0 0 14px rgba(255,42,0,0); }
+    }
+    .pulse-dot { animation: blink 1.2s steps(1) infinite; }
+    .sos-glow { animation: siren 1.6s ease-out infinite; }
+    .step-card:hover { transform: translateY(-2px); }
+    .check-item input { position: absolute; opacity: 0; pointer-events: none; }
+    .check-box {
+      width: 28px; height: 28px; flex-shrink: 0;
+      border: 2px solid #F6F3EC;
+      display: grid; place-items: center;
+      transition: 0.15s ease;
+    }
+    .check-item input:checked + .check-box {
+      background: #E8FF00; border-color: #E8FF00; color: #070707;
+    }
+    .check-item input:checked ~ .check-label { color: #8A8A8A; text-decoration: line-through; }
+    .pin {
+      cursor: pointer;
+      transform-origin: center bottom;
+      transition: transform 0.15s ease;
+    }
+    .pin:hover, .pin.active { transform: scale(1.18); }
+    .map-tooltip {
+      pointer-events: none;
+      position: absolute;
+      transform: translate(-50%, -120%);
+      white-space: nowrap;
+    }
+    .nav-btn.active { color: #070707; background: #E8FF00; }
+    .progress-ring { transform: rotate(-90deg); }
+    .progress-ring circle { transition: stroke-dashoffset 0.45s ease; }
+    ::-webkit-scrollbar { width: 10px; height: 10px; }
+    ::-webkit-scrollbar-track { background: #070707; }
+    ::-webkit-scrollbar-thumb { background: #2C2C2C; }
+    .modal-backdrop { background: rgba(0,0,0,0.78); backdrop-filter: blur(6px); }
+    .street { stroke: #2A2A2A; stroke-width: 8; fill: none; }
+    .street-thin { stroke: #222; stroke-width: 3; fill: none; }
+    button, a, input, select { outline: none; }
+    button:focus-visible, a:focus-visible, input:focus-visible {
+      outline: 3px solid #E8FF00; outline-offset: 3px;
+    }
+    .type-eq { --acc: #FF2A00; --acc2: #FF8A70; }
+    .type-fl { --acc: #00E8FF; --acc2: #9AF6FF; }
+    .type-fi { --acc: #FF5A00; --acc2: #FFB086; }
+    .type-ls { --acc: #E8FF00; --acc2: #F6FF8A; }
+    @media (max-width: 380px) {
+      .hero-line { font-size: 3.1rem; line-height: 0.88; }
+    }
+  </style>
+</head>
+<body class="grain text-paper antialiased">
+  <div class="relative z-10 min-h-dvh pb-28 md:pb-10 md:pl-[240px]">
+    <!-- SIDEBAR / DESKTOP -->
+    <aside class="hidden md:flex fixed inset-y-0 left-0 z-40 w-[240px] flex-col border-r border-line bg-ink">
+      <div class="px-6 pt-7 pb-6 border-b border-line">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 bg-volt text-ink grid place-items-center font-display text-2xl leading-none">SP</div>
+          <div>
+            <div class="font-display text-3xl leading-none tracking-wide">SAFEPATH</div>
+            <div class="text-[10px] uppercase tracking-[0.22em] text-mute mt-1">Emergency OS</div>
+          </div>
+        </div>
+      </div>
+      <nav class="flex-1 p-4 space-y-1.5" id="sideNav"></nav>
+      <div class="p-4 border-t border-line">
+        <button onclick="openSOS()" class="sos-glow w-full bg-signal text-paper font-display text-3xl tracking-wide py-3 hover:brightness-110">SOS · 911</button>
+      </div>
+    </aside>
+
+    <!-- MOBILE HEADER -->
+    <header class="md:hidden sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur-md">
+      <div class="flex items-center justify-between px-4 h-16">
+        <div class="flex items-center gap-2.5">
+          <div class="h-8 w-8 bg-volt text-ink grid place-items-center font-display text-lg">SP</div>
+          <div class="font-display text-2xl tracking-wide leading-none">SAFEPATH</div>
+        </div>
+        <button onclick="openSOS()" class="sos-glow bg-signal text-paper font-display text-xl px-4 py-1.5">SOS</button>
+      </div>
+    </header>
+
+    <main class="relative mx-auto w-full max-w-6xl px-4 sm:px-6 pt-5 md:pt-8">
+      <!-- HOME -->
+      <section id="view-home" class="view active">
+        <div class="flex items-center gap-2 mb-4">
+          <span class="pulse-dot inline-block h-2.5 w-2.5 rounded-full bg-moss"></span>
+          <span class="text-[11px] uppercase tracking-[0.24em] text-mute">Live · Demo City · Ready</span>
+        </div>
+        <h1 class="hero-line font-display text-[4.4rem] sm:text-8xl md:text-[7.2rem] leading-[0.86] tracking-wide">
+          KNOW WHAT<br />TO DO.<br />
+          <span class="text-volt">KNOW WHERE<br />TO GO.</span>
+        </h1>
+        <p class="mt-5 max-w-xl text-base sm:text-lg text-mute leading-relaxed">
+          Fast, high-contrast guidance for earthquakes, floods, fires, and landslides. Select what’s happening. Follow the steps. Get to safety.
+        </p>
+
+        <div class="mt-8 mb-3 flex items-end justify-between gap-4">
+          <h2 class="font-display text-4xl sm:text-5xl tracking-wide">SELECT EMERGENCY</h2>
+          <span class="hidden sm:block text-[11px] uppercase tracking-[0.2em] text-mute">Tap to open protocol</span>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
+          <button onclick="openEmergency('earthquake')" class="group relative overflow-hidden border-2 border-signal bg-panel text-left p-5 sm:p-7 min-h-[132px] hover:bg-signal hover:text-ink transition-colors">
+            <div class="absolute -right-2 -top-3 font-display text-[120px] leading-none opacity-10 group-hover:opacity-20">EQ</div>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-display text-5xl sm:text-6xl tracking-wide leading-none">EARTHQUAKE</div>
+                <div class="mt-2 text-sm uppercase tracking-[0.16em] opacity-80">Drop · Cover · Hold</div>
+              </div>
+              <svg class="w-10 h-10 shrink-0" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M4 28 L12 20 L18 26 L26 10 L34 30 L40 22 L44 28" />
+                <path d="M4 36 H44" opacity=".5" />
+              </svg>
+            </div>
+          </button>
+
+          <button onclick="openEmergency('flood')" class="group relative overflow-hidden border-2 border-ice bg-panel text-left p-5 sm:p-7 min-h-[132px] hover:bg-ice hover:text-ink transition-colors">
+            <div class="absolute -right-2 -top-3 font-display text-[120px] leading-none opacity-10 group-hover:opacity-20">FL</div>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-display text-5xl sm:text-6xl tracking-wide leading-none">FLOOD</div>
+                <div class="mt-2 text-sm uppercase tracking-[0.16em] opacity-80">Climb · Avoid water</div>
+              </div>
+              <svg class="w-10 h-10 shrink-0" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M6 30c4 0 4-6 8-6s4 6 8 6 4-6 8-6 4 6 8 6" />
+                <path d="M6 38c4 0 4-6 8-6s4 6 8 6 4-6 8-6 4 6 8 6" />
+                <path d="M24 8c0 8-10 12-10 20a10 10 0 0020 0c0-8-10-12-10-20z" />
+              </svg>
+            </div>
+          </button>
+
+          <button onclick="openEmergency('fire')" class="group relative overflow-hidden border-2 border-blaze bg-panel text-left p-5 sm:p-7 min-h-[132px] hover:bg-blaze hover:text-ink transition-colors">
+            <div class="absolute -right-2 -top-3 font-display text-[120px] leading-none opacity-10 group-hover:opacity-20">FI</div>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-display text-5xl sm:text-6xl tracking-wide leading-none">FIRE</div>
+                <div class="mt-2 text-sm uppercase tracking-[0.16em] opacity-80">Get out · Stay out</div>
+              </div>
+              <svg class="w-10 h-10 shrink-0" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M24 6c2 8-8 10-6 20 1 6 7 12 14 10 8-2 10-12 6-18-1 6-6 7-6 2 0-8 4-12-8-14z" />
+              </svg>
+            </div>
+          </button>
+
+          <button onclick="openEmergency('landslide')" class="group relative overflow-hidden border-2 border-volt bg-panel text-left p-5 sm:p-7 min-h-[132px] hover:bg-volt hover:text-ink transition-colors">
+            <div class="absolute -right-2 -top-3 font-display text-[120px] leading-none opacity-10 group-hover:opacity-20">LS</div>
+            <div class="flex items-start justify-between gap-3">
+              <div>
+                <div class="font-display text-5xl sm:text-6xl tracking-wide leading-none">LANDSLIDE</div>
+                <div class="mt-2 text-sm uppercase tracking-[0.16em] opacity-80">Move aside · Go high</div>
+              </div>
+              <svg class="w-10 h-10 shrink-0" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4">
+                <path d="M4 38 L18 14 L28 26 L36 16 L44 38 Z" />
+                <path d="M10 38 L22 22" opacity=".5" />
+              </svg>
+            </div>
+          </button>
+        </div>
+
+        <div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-3">
+          <button onclick="showView('map')" class="border border-line bg-panel p-5 text-left hover:border-volt transition-colors">
+            <div class="text-[11px] uppercase tracking-[0.2em] text-mute">Safe locations</div>
+            <div class="font-display text-4xl mt-1">6 DEMO ZONES</div>
+            <div class="text-sm text-mute mt-1">Shelters, hospitals, high ground</div>
+          </button>
+          <button onclick="showView('contacts')" class="border border-line bg-panel p-5 text-left hover:border-volt transition-colors">
+            <div class="text-[11px] uppercase tracking-[0.2em] text-mute">Call sheet</div>
+            <div class="font-display text-4xl mt-1">CONTACTS</div>
+            <div class="text-sm text-mute mt-1">911, utilities, personal circle</div>
+          </button>
+          <button onclick="showView('prep')" class="border border-line bg-panel p-5 text-left hover:border-volt transition-colors">
+            <div class="text-[11px] uppercase tracking-[0.2em] text-mute">Before it happens</div>
+            <div class="font-display text-4xl mt-1">PREP CHECKLIST</div>
+            <div class="text-sm text-mute mt-1" id="homePrepHint">Build your kit and plan</div>
+          </button>
+        </div>
+      </section>
+
+      <!-- GUIDE -->
+      <section id="view-guide" class="view">
+        <button onclick="showView('home')" class="text-[12px] uppercase tracking-[0.2em] text-mute hover:text-volt mb-4">← All emergencies</button>
+        <div id="guideRoot"></div>
+      </section>
+
+      <!-- MAP -->
+      <section id="view-map" class="view">
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-2">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.22em] text-mute">Demo City · Sample data</div>
+            <h2 class="font-display text-6xl sm:text-7xl tracking-wide leading-none">SAFE ZONES</h2>
+          </div>
+          <div class="border border-volt text-volt text-[11px] uppercase tracking-[0.18em] px-3 py-1.5">Demo data — not live GIS</div>
+        </div>
+        <p class="text-mute max-w-2xl mb-5">Clearly labeled demonstration locations for a fictional district. Use this to practice finding shelters before a real event. Distances are sample values.</p>
+
+        <div class="flex flex-wrap gap-2 mb-4" id="zoneFilters"></div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          <div class="lg:col-span-3 border border-line bg-panel p-3 sm:p-4">
+            <div class="flex items-center justify-between mb-2 px-1">
+              <span class="text-[11px] uppercase tracking-[0.2em] text-mute">District map · Northridge</span>
+              <span class="text-[11px] uppercase tracking-[0.2em] text-volt">Interactive pins</span>
+            </div>
+            <div class="relative bg-ink overflow-hidden aspect-[4/3] sm:aspect-[16/11]">
+              <svg id="cityMap" viewBox="0 0 800 560" class="w-full h-full block" role="img" aria-label="Stylized demo city map with safe zone pins"></svg>
+              <div id="mapTip" class="map-tooltip hidden bg-volt text-ink text-xs font-semibold px-2 py-1"></div>
+            </div>
+            <div class="mt-3 flex flex-wrap gap-4 text-[11px] uppercase tracking-[0.16em] text-mute px-1">
+              <span class="flex items-center gap-1.5"><i class="inline-block w-2.5 h-2.5 bg-volt"></i> Shelter</span>
+              <span class="flex items-center gap-1.5"><i class="inline-block w-2.5 h-2.5 bg-signal"></i> Medical</span>
+              <span class="flex items-center gap-1.5"><i class="inline-block w-2.5 h-2.5 bg-ice"></i> High ground</span>
+              <span class="flex items-center gap-1.5"><i class="inline-block w-2.5 h-2.5 bg-blaze"></i> Station</span>
+            </div>
+          </div>
+          <div class="lg:col-span-2 space-y-2" id="zoneList"></div>
+        </div>
+
+        <div id="zoneDetail" class="mt-4 hidden border-2 border-volt bg-raised p-5 sm:p-6"></div>
+      </section>
+
+      <!-- CONTACTS -->
+      <section id="view-contacts" class="view">
+        <div class="text-[11px] uppercase tracking-[0.22em] text-mute">Call sheet</div>
+        <h2 class="font-display text-6xl sm:text-7xl tracking-wide leading-none mb-2">CONTACTS</h2>
+        <p class="text-mute mb-6 max-w-xl">Official numbers plus your personal circle. Personal contacts stay on this device only.</p>
+
+        <a href="tel:911" class="group flex items-center justify-between border-2 border-signal bg-signal text-ink px-5 py-5 mb-6 hover:brightness-110">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.22em] font-semibold">Life-threatening emergency</div>
+            <div class="font-display text-6xl leading-none">911</div>
+          </div>
+          <div class="font-display text-3xl">CALL →</div>
+        </a>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="officialContacts"></div>
+
+        <div class="mt-8 flex items-end justify-between">
+          <h3 class="font-display text-4xl">YOUR CIRCLE</h3>
+          <button onclick="toggleAddContact(true)" class="text-[12px] uppercase tracking-[0.16em] border border-volt text-volt px-3 py-1.5 hover:bg-volt hover:text-ink">+ Add</button>
+        </div>
+        <form id="addContactForm" class="hidden mt-3 grid grid-cols-1 sm:grid-cols-4 gap-2 border border-line bg-panel p-3">
+          <input id="cName" placeholder="Name" class="bg-ink border border-line px-3 py-2 text-sm" />
+          <input id="cRel" placeholder="Relationship" class="bg-ink border border-line px-3 py-2 text-sm" />
+          <input id="cPhone" placeholder="Phone" type="tel" class="bg-ink border border-line px-3 py-2 text-sm" />
+          <div class="flex gap-2">
+            <button type="submit" class="flex-1 bg-volt text-ink font-semibold text-sm">Save</button>
+            <button type="button" onclick="toggleAddContact(false)" class="px-3 border border-line text-sm">Cancel</button>
+          </div>
+        </form>
+        <div id="personalContacts" class="mt-3 space-y-2"></div>
+      </section>
+
+      <!-- PREP -->
+      <section id="view-prep" class="view">
+        <div class="flex flex-wrap items-end justify-between gap-4 mb-6">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.22em] text-mute">Before the siren</div>
+            <h2 class="font-display text-6xl sm:text-7xl tracking-wide leading-none">PREPARE</h2>
+          </div>
+          <div class="flex items-center gap-4">
+            <svg class="progress-ring" width="72" height="72" viewBox="0 0 72 72" aria-hidden="true">
+              <circle cx="36" cy="36" r="30" fill="none" stroke="#2C2C2C" stroke-width="6"></circle>
+              <circle id="prepRing" cx="36" cy="36" r="30" fill="none" stroke="#E8FF00" stroke-width="6" stroke-linecap="butt" stroke-dasharray="188.5" stroke-dashoffset="188.5"></circle>
+            </svg>
+            <div>
+              <div class="font-display text-5xl leading-none" id="prepPct">0%</div>
+              <div class="text-[11px] uppercase tracking-[0.18em] text-mute" id="prepCount">0 / 0 done</div>
+            </div>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-2 mb-5" id="prepFilters"></div>
+        <div id="prepList" class="space-y-6"></div>
+        <div class="mt-6 flex gap-2">
+          <button onclick="resetPrep()" class="border border-line px-4 py-2 text-[12px] uppercase tracking-[0.16em] hover:border-signal hover:text-signal">Reset checklist</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MOBILE NAV -->
+  <nav class="md:hidden fixed bottom-0 inset-x-0 z-40 border-t border-line bg-ink/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)]">
+    <div class="grid grid-cols-5 h-[68px]" id="bottomNav"></div>
+  </nav>
+
+  <!-- SOS MODAL -->
+  <div id="sosModal" class="fixed inset-0 z-50 hidden">
+    <div class="modal-backdrop absolute inset-0" onclick="closeSOS()"></div>
+    <div class="relative z-10 mx-auto mt-[12vh] w-[min(92vw,440px)] border-2 border-signal bg-ink p-6">
+      <div class="text-[11px] uppercase tracking-[0.22em] text-signal">Emergency action</div>
+      <h3 class="font-display text-6xl leading-none mt-1">CALL 911?</h3>
+      <p class="text-mute mt-3 text-sm leading-relaxed">Only use for a real emergency. This will open your phone dialer. If you are in immediate danger, get to safety first, then call.</p>
+      <div class="mt-6 grid grid-cols-1 gap-2">
+        <a href="tel:911" class="bg-signal text-ink font-display text-4xl py-3 text-center hover:brightness-110">DIAL 911</a>
+        <button onclick="copySafeMsg()" class="border border-volt text-volt font-display text-3xl py-3 hover:bg-volt hover:text-ink">I’M SAFE — COPY MSG</button>
+        <button onclick="closeSOS()" class="border border-line py-3 text-[12px] uppercase tracking-[0.18em] text-mute hover:text-paper">Cancel</button>
+      </div>
+      <p id="copyNote" class="hidden mt-3 text-moss text-sm">Message copied. Paste it to family or your out-of-area contact.</p>
+    </div>
+  </div>
+
+  <script>
+    const NAV = [
+      { id: 'home', label: 'Home', icon: 'M4 18 L16 8 L28 18 V26 H4 Z' },
+      { id: 'guide', label: 'Guide', icon: 'M6 6 H26 V26 H6 Z M10 12 H22 M10 16 H18' },
+      { id: 'map', label: 'Zones', icon: 'M16 4 C10 4 8 10 8 14 C8 22 16 28 16 28 S24 22 24 14 C24 10 22 4 16 4 Z M16 12 A3 3 0 1 0 16 18 A3 3 0 1 0 16 12' },
+      { id: 'contacts', label: 'Call', icon: 'M8 6 H12 L14 12 L11 14 C13 18 16 21 20 23 L22 20 L28 22 V26 C16 26 6 16 6 8 Z' },
+      { id: 'prep', label: 'Prep', icon: 'M6 16 L13 23 L26 8' }
+    ];
+
+    const GUIDES = {
+      earthquake: {
+        title: 'EARTHQUAKE',
+        kicker: 'Protocol EQ-01',
+        accent: 'signal',
+        border: 'border-signal',
+        btn: 'bg-signal text-ink',
+        tag: 'Drop · Cover · Hold On',
+        now: [
+          { n: '01', t: 'Drop where you are', d: 'Get down onto your hands and knees before the shaking knocks you over. Do not run outside during strong shaking.' },
+          { n: '02', t: 'Cover your head and neck', d: 'Crawl under a sturdy table or desk. If none, cover your head and neck with your arms next to an interior wall. Stay away from windows, glass, and tall furniture.' },
+          { n: '03', t: 'Hold on until it stops', d: 'Hold your shelter with one hand. If it moves, move with it. Protect your head the entire time. Expect aftershocks.' },
+          { n: '04', t: 'If you are outdoors', d: 'Move to an open area away from buildings, streetlights, power lines, and overpasses. Drop and cover in place if you cannot reach open ground.' },
+          { n: '05', t: 'If you are driving', d: 'Pull over, stop, and set the parking brake. Stay inside the vehicle until shaking ends. Avoid bridges, tunnels, and power lines.' }
+        ],
+        next: [
+          'Check yourself and others for injuries. Provide first aid.',
+          'Expect aftershocks. Drop, cover, and hold on each time.',
+          'If you smell gas or see major structural damage, evacuate.',
+          'Use text or data, not voice calls, to free the network.',
+          'Do not re-enter damaged buildings. Go to a marked safe zone.'
+        ],
+        avoid: ['Doorways are not safer than other spots in modern buildings.', 'Do not use elevators.', 'Do not light matches if you suspect a gas leak.']
+      },
+      flood: {
+        title: 'FLOOD',
+        kicker: 'Protocol FL-02',
+        accent: 'ice',
+        border: 'border-ice',
+        btn: 'bg-ice text-ink',
+        tag: 'Turn around · Don’t drown',
+        now: [
+          { n: '01', t: 'Move to higher ground now', d: 'Do not wait for an official order if water is rising around you. Take people and pets. Leave belongings.' },
+          { n: '02', t: 'Never walk through floodwater', d: '15 cm of moving water can knock you down. Water can hide holes, debris, and live wires. If you must move, go around — not through.' },
+          { n: '03', t: 'Never drive into water', d: '30 cm of water can float many cars. 60 cm can sweep SUVs away. Turn around. Find another route to high ground.' },
+          { n: '04', t: 'Cut power if you can do it dry', d: 'If water has not reached outlets and you can reach the breaker safely, shut off electricity. Do not touch electrical gear if you or the floor is wet.' },
+          { n: '05', t: 'If trapped in a building', d: 'Go to the highest floor that is structurally sound. Do not climb into a closed attic without an exit. Signal from a window or roof.' }
+        ],
+        next: [
+          'Listen to official alerts before returning home.',
+          'Avoid standing water — it may be contaminated or electrified.',
+          'Document damage with photos for insurance when safe.',
+          'Throw out food that contacted floodwater.',
+          'Watch for secondary landslides on saturated slopes.'
+        ],
+        avoid: ['Do not drink tap water until authorities say it is safe.', 'Do not use gas appliances until inspected.', 'Do not walk near riverbanks or storm drains.']
+      },
+      fire: {
+        title: 'FIRE',
+        kicker: 'Protocol FI-03',
+        accent: 'blaze',
+        border: 'border-blaze',
+        btn: 'bg-blaze text-ink',
+        tag: 'Get out · Stay out · Call',
+        now: [
+          { n: '01', t: 'Leave immediately', d: 'Do not stop for phones, photos, or valuables. Alert others as you go. Every second counts once smoke appears.' },
+          { n: '02', t: 'Stay low under smoke', d: 'Heat and toxic gases rise. Crawl. Cover your mouth with cloth if you can, but do not delay exit to find one.' },
+          { n: '03', t: 'Feel doors before opening', d: 'Use the back of your hand. If a door is hot, use your second exit. Close doors behind you to slow the fire.' },
+          { n: '04', t: 'If clothes catch fire', d: 'Stop, drop to the ground, and roll. Cover your face. Do not run.' },
+          { n: '05', t: 'Once outside, stay outside', d: 'Go to your meeting place. Call emergency services. Never re-enter a burning building for any reason.' }
+        ],
+        next: [
+          'Account for every person and pet.',
+          'Tell firefighters if anyone is still inside and where.',
+          'If you live in a wildfire zone, follow official evacuation orders early.',
+          'Move vehicles out of driveways so crews can access hydrants.',
+          'Treat smoke exposure seriously — seek medical care if breathing is hard.'
+        ],
+        avoid: ['Do not use elevators.', 'Do not hide in closets or under beds.', 'Do not go back for documents or devices.']
+      },
+      landslide: {
+        title: 'LANDSLIDE',
+        kicker: 'Protocol LS-04',
+        accent: 'volt',
+        border: 'border-volt',
+        btn: 'bg-volt text-ink',
+        tag: 'Move aside · Not downhill',
+        now: [
+          { n: '01', t: 'Get out of the slide path', d: 'If you hear rumbling, cracking trees, or see tilting poles, move immediately. Do not wait to confirm.' },
+          { n: '02', t: 'Run perpendicular to the flow', d: 'Move sideways to higher, stable ground — not downhill with the debris and not directly up a failing slope if you can avoid it.' },
+          { n: '03', t: 'If escape is impossible', d: 'Curl into a ball and protect your head. Debris can strike from multiple directions.' },
+          { n: '04', t: 'Stay away from river valleys', d: 'Slides often dam creeks, then fail as flash floods or debris flows. Keep clear of channels below steep terrain.' },
+          { n: '05', t: 'After the first slide, stay alert', d: 'Additional slides are common. Do not return to inspect property until officials say the slope is stable.' }
+        ],
+        next: [
+          'Report blocked roads, ruptured utilities, and missing people.',
+          'Watch for flooding, broken gas lines, and downed power lines.',
+          'Stay out of the slide area — soil can shift again without warning.',
+          'Check foundations, septic, and drainage before reoccupation.',
+          'Go to a designated high-ground assembly area if your home is unsafe.'
+        ],
+        avoid: ['Do not walk on fresh slide debris.', 'Do not drive across cracked or bulging pavement.', 'Do not ignore small rockfall — it can precede a larger failure.']
+      }
+    };
+
+    const ZONES = [
+      { id: 'z1', name: 'Riverside Community Center', type: 'shelter', types: ['earthquake', 'flood', 'fire', 'landslide'], addr: '120 Harbor Ave', dist: '0.4 mi', cap: '420 people', note: 'Primary mass-care shelter. Backup power, cots, pets-in-crates area.', x: 180, y: 210, color: '#E8FF00' },
+      { id: 'z2', name: 'Lincoln High Gymnasium', type: 'shelter', types: ['earthquake', 'fire', 'flood'], addr: '88 Oak Ridge Blvd', dist: '0.8 mi', cap: '650 people', note: 'Official Red Cross partner site. Opens after Level 2 activation.', x: 430, y: 140, color: '#E8FF00' },
+      { id: 'z3', name: 'Memorial District Hospital', type: 'medical', types: ['earthquake', 'fire', 'flood', 'landslide'], addr: '401 Health Way', dist: '1.2 mi', cap: 'ER 24/7', note: 'Trauma-capable ER. Use only for medical emergencies, not general shelter.', x: 620, y: 200, color: '#FF2A00' },
+      { id: 'z4', name: 'Fire Station 4', type: 'station', types: ['fire', 'earthquake'], addr: '55 Rescue Road', dist: '0.6 mi', cap: 'Staging only', note: 'Do not block bays. Information and first-aid staging during large incidents.', x: 300, y: 360, color: '#FF5A00' },
+      { id: 'z5', name: 'North Ridge Overlook', type: 'highground', types: ['flood', 'landslide'], addr: 'North Ridge Park, Gate B', dist: '1.5 mi', cap: 'Open assembly', note: 'High ground assembly for flood and debris-flow events. No indoor capacity.', x: 520, y: 420, color: '#00E8FF' },
+      { id: 'z6', name: 'City Hall Civic Shelter', type: 'shelter', types: ['earthquake', 'fire', 'flood', 'landslide'], addr: '1 Civic Plaza', dist: '0.9 mi', cap: '280 people', note: 'Municipal reception center. Charging, family reunification desk.', x: 250, y: 470, color: '#E8FF00' }
+    ];
+
+    const OFFICIAL = [
+      { name: 'Emergency Services', num: '911', hint: 'Police · Fire · Ambulance', href: 'tel:911' },
+      { name: 'Poison Control', num: '1-800-222-1222', hint: '24/7 toxic exposure', href: 'tel:18002221222' },
+      { name: 'Demo City OEM', num: '555-0140', hint: 'Non-emergency emergency mgmt', href: 'tel:5550140' },
+      { name: 'Red Cross Disaster', num: '1-800-733-2767', hint: 'Shelter & family links', href: 'tel:18007332767' },
+      { name: 'Gas Utility Leak', num: '555-0199', hint: 'Smell gas? Leave, then call', href: 'tel:5550199' },
+      { name: 'Electric Utility', num: '555-0133', hint: 'Downed lines & outages', href: 'tel:5550133' },
+      { name: 'Flood Hotline', num: '555-0188', hint: 'Sandbags & river levels', href: 'tel:5550188' },
+      { name: 'Public Works', num: '555-0160', hint: 'Roads, debris, water', href: 'tel:5550160' }
+    ];
+
+    const PREP = [
+      { cat: 'Kit', items: [
+        '1 gallon of water per person per day (3-day supply)',
+        'Non-perishable food for 3 days',
+        'Battery or hand-crank flashlight',
+        'Extra batteries',
+        'First aid kit + personal medications',
+        'Whistle to signal for help',
+        'N95 / dust masks',
+        'Plastic sheeting, duct tape, garbage bags',
+        'Wrench or pliers to shut off utilities',
+        'Manual can opener and local paper map',
+        'Power bank and charging cables',
+        'Cash in small bills'
+      ]},
+      { cat: 'Home', items: [
+        'Know how to shut off gas, water, and electricity',
+        'Secure tall furniture and water heater to studs',
+        'Working smoke and carbon monoxide detectors',
+        'Fire extinguisher on each floor, and you know how to use it',
+        'Gutters, drains, and downspouts are clear',
+        'Hazardous chemicals stored high and sealed'
+      ]},
+      { cat: 'Plan', items: [
+        'Two evacuation routes from home and work',
+        'Out-of-area contact everyone will text',
+        'Neighborhood meeting place identified',
+        'Plan practiced with household in the last 6 months',
+        'Copies of IDs, insurance, and bank info in the kit',
+        'Pet carriers, food, and a pet plan',
+        'Building assembly point is known'
+      ]},
+      { cat: 'Know', items: [
+        'Signed up for local emergency alerts',
+        'Nearest official shelter identified',
+        'Know if you are in a flood, fire, or slide zone',
+        'Emergency numbers saved offline / on paper'
+      ]}
+    ];
+
+    let currentView = 'home';
+    let currentEmergency = 'earthquake';
+    let zoneFilter = 'all';
+    let prepFilter = 'All';
+    let selectedZone = null;
+
+    function iconSvg(d) {
+      return `<svg viewBox="0 0 32 32" class="w-5 h-5 mx-auto" fill="none" stroke="currentColor" stroke-width="2.2">${d.split('M').filter(Boolean).map(p => `<path d="M${p}" />`).join('')}</svg>`;
+    }
+
+    function buildNav() {
+      const side = document.getElementById('sideNav');
+      const bottom = document.getElementById('bottomNav');
+      side.innerHTML = '';
+      bottom.innerHTML = '';
+      NAV.forEach(n => {
+        const active = currentView === n.id;
+        side.insertAdjacentHTML('beforeend', `
+          <button onclick="showView('${n.id}')" class="nav-btn w-full flex items-center gap-3 px-3 py-3 text-left text-sm uppercase tracking-[0.16em] ${active ? 'active' : 'text-mute hover:text-paper hover:bg-raised'}">
+            <span class="w-5">${iconSvg(n.icon)}</span>${n.label}
+          </button>`);
+        bottom.insertAdjacentHTML('beforeend', `
+          <button onclick="showView('${n.id}')" class="nav-btn flex flex-col items-center justify-center gap-0.5 text-[10px] uppercase tracking-[0.14em] ${active ? 'active' : 'text-mute'}">
+            ${iconSvg(n.icon)}<span>${n.label}</span>
+          </button>`);
+      });
+    }
+
+    function showView(id) {
+      currentView = id;
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      const el = document.getElementById('view-' + id);
+      if (el) el.classList.add('active');
+      buildNav();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      if (id === 'guide') renderGuide();
+      if (id === 'map') renderMap();
+      if (id === 'contacts') renderContacts();
+      if (id === 'prep') renderPrep();
+    }
+
+    function openEmergency(key) {
+      currentEmergency = key;
+      showView('guide');
+    }
+
+    function renderGuide() {
+      const g = GUIDES[currentEmergency];
+      const zones = ZONES.filter(z => z.types.includes(currentEmergency));
+      document.getElementById('guideRoot').innerHTML = `
+        <div class="flex flex-wrap items-end justify-between gap-3 mb-2">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.22em] text-${g.accent}">${g.kicker}</div>
+            <h2 class="font-display text-6xl sm:text-8xl tracking-wide leading-none">${g.title}</h2>
+            <div class="mt-2 text-sm uppercase tracking-[0.18em] text-mute">${g.tag}</div>
+          </div>
+          <a href="tel:911" class="${g.btn} font-display text-3xl px-5 py-2">CALL 911</a>
+        </div>
+        <div class="mt-6 mb-3 font-display text-4xl text-volt">DO THIS NOW</div>
+        <div class="grid grid-cols-1 gap-3">
+          ${g.now.map(s => `
+            <article class="step-card border ${g.border} bg-panel p-4 sm:p-5 flex gap-4 transition-transform">
+              <div class="font-display text-5xl sm:text-6xl leading-none text-${g.accent} w-[72px] shrink-0">${s.n}</div>
+              <div>
+                <h3 class="font-display text-3xl sm:text-4xl leading-none">${s.t}</h3>
+                <p class="mt-2 text-sm sm:text-base text-mute leading-relaxed">${s.d}</p>
+              </div>
+            </article>`).join('')}
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-3 mt-6">
+          <div class="border border-line bg-panel p-5">
+            <h3 class="font-display text-3xl text-volt">THEN</h3>
+            <ul class="mt-3 space-y-2 text-sm text-paper/90">
+              ${g.next.map(i => `<li class="flex gap-2"><span class="text-volt">▸</span><span>${i}</span></li>`).join('')}
+            </ul>
+          </div>
+          <div class="border border-line bg-panel p-5">
+            <h3 class="font-display text-3xl text-signal">DO NOT</h3>
+            <ul class="mt-3 space-y-2 text-sm text-paper/90">
+              ${g.avoid.map(i => `<li class="flex gap-2"><span class="text-signal">▸</span><span>${i}</span></li>`).join('')}
+            </ul>
+          </div>
+        </div>
+        <div class="mt-6 flex flex-wrap items-end justify-between gap-2">
+          <h3 class="font-display text-4xl">NEAREST DEMO ZONES</h3>
+          <button onclick="zoneFilter='${currentEmergency}'; showView('map')" class="text-[12px] uppercase tracking-[0.16em] text-volt hover:underline">Open full map →</button>
+        </div>
+        <div class="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+          ${zones.slice(0,4).map(z => `
+            <button onclick="zoneFilter='${currentEmergency}'; selectedZone='${z.id}'; showView('map')" class="text-left border border-line bg-raised p-4 hover:border-volt">
+              <div class="flex justify-between gap-2">
+                <div class="font-display text-2xl leading-none">${z.name}</div>
+                <div class="text-volt text-sm shrink-0">${z.dist}</div>
+              </div>
+              <div class="text-xs text-mute mt-1 uppercase tracking-[0.14em]">${z.addr} · ${z.type}</div>
+            </button>`).join('')}
+        </div>
+      `;
+    }
+
+    function drawMap() {
+      const svg = document.getElementById('cityMap');
+      const river = `<path d="M0 80 C120 120 160 40 280 90 C400 140 420 40 560 70 C680 98 720 40 800 90 L800 0 L0 0 Z" fill="#0c1a1d"/>
+        <path d="M0 90 C140 140 170 60 300 110 C430 160 430 60 580 95 C700 122 730 70 800 110" fill="none" stroke="#00E8FF" stroke-opacity=".25" stroke-width="10"/>`;
+      const parks = `<rect x="470" y="360" width="180" height="130" fill="#102010"/><rect x="40" y="400" width="120" height="90" fill="#102010"/>`;
+      const blocks = [
+        [40,130,140,90],[200,120,150,80],[380,100,160,100],[60,250,170,80],
+        [260,240,130,90],[420,230,110,70],[560,150,160,90],[580,270,140,80],
+        [80,360,150,70],[250,400,140,80],[40,40,90,50]
+      ].map(b => `<rect x="${b[0]}" y="${b[1]}" width="${b[2]}" height="${b[3]}" fill="#161616" stroke="#242424"/>`).join('');
+      const streets = `
+        <path class="street" d="M0 200 H800"/>
+        <path class="street" d="M0 340 H800"/>
+        <path class="street" d="M160 60 V560"/>
+        <path class="street" d="M360 40 V560"/>
+        <path class="street" d="M540 80 V560"/>
+        <path class="street-thin" d="M0 270 H800"/>
+        <path class="street-thin" d="M250 60 V560"/>
+        <path class="street-thin" d="M0 450 H800"/>
+        <text x="24" y="194" fill="#555" font-size="11" font-family="DM Sans">HARBOR AVE</text>
+        <text x="24" y="334" fill="#555" font-size="11" font-family="DM Sans">OAK RIDGE</text>
+        <text x="168" y="80" fill="#555" font-size="11" font-family="DM Sans" transform="rotate(90 168 80)">CIVIC</text>
+        <text x="548" y="100" fill="#555" font-size="11" font-family="DM Sans" transform="rotate(90 548 100)">HEALTH WAY</text>
+        <text x="490" y="390" fill="#3a5a3a" font-size="12" font-family="DM Sans">NORTH RIDGE PARK</text>
+        <text x="50" y="70" fill="#3a6a70" font-size="11" font-family="DM Sans">RIVER</text>
+      `;
+      const you = `<g transform="translate(360 300)">
+        <circle r="16" fill="#E8FF00" fill-opacity=".15" stroke="#E8FF00"/>
+        <circle r="5" fill="#E8FF00"/>
+        <text y="28" text-anchor="middle" fill="#E8FF00" font-size="10" font-family="DM Sans">YOU (DEMO)</text>
+      </g>`;
+      svg.innerHTML = `<rect width="800" height="560" fill="#0A0A0A"/>${river}${parks}${blocks}${streets}${you}<g id="pins"></g>`;
+      const pins = document.getElementById('pins');
+      filteredZones().forEach(z => {
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+        g.setAttribute('class', 'pin' + (selectedZone === z.id ? ' active' : ''));
+        g.setAttribute('transform', `translate(${z.x} ${z.y})`);
+        g.innerHTML = `
+          <path d="M0 -28 C-10 -28 -14 -18 -14 -12 C-14 -2 0 8 0 8 S14 -2 14 -12 C14 -18 10 -28 0 -28 Z" fill="${z.color}" stroke="#070707" stroke-width="2"/>
+          <circle cy="-15" r="4.5" fill="#070707"/>
+          <text y="22" text-anchor="middle" fill="#F6F3EC" font-size="10" font-family="DM Sans">${z.name.split(' ')[0]}</text>`;
+        g.addEventListener('click', () => selectZone(z.id));
+        g.addEventListener('mouseenter', (e) => showTip(e, z.name));
+        g.addEventListener('mouseleave', hideTip);
+        pins.appendChild(g);
+      });
+    }
+
+    function showTip(e, text) {
+      const tip = document.getElementById('mapTip');
+      const box = document.getElementById('cityMap').getBoundingClientRect();
+      tip.textContent = text;
+      tip.classList.remove('hidden');
+      tip.style.left = (e.clientX - box.left) + 'px';
+      tip.style.top = (e.clientY - box.top) + 'px';
+    }
+    function hideTip() { document.getElementById('mapTip').classList.add('hidden'); }
+
+    function filteredZones() {
+      if (zoneFilter === 'all') return ZONES;
+      if (['earthquake','flood','fire','landslide'].includes(zoneFilter)) return ZONES.filter(z => z.types.includes(zoneFilter));
+      return ZONES.filter(z => z.type === zoneFilter);
+    }
+
+    function renderMap() {
+      const filters = [
+        ['all','All'], ['earthquake','Earthquake'], ['flood','Flood'], ['fire','Fire'], ['landslide','Landslide'],
+        ['shelter','Shelters'], ['medical','Medical'], ['highground','High ground']
+      ];
+      document.getElementById('zoneFilters').innerHTML = filters.map(([k,l]) => `
+        <button onclick="zoneFilter='${k}'; selectedZone=null; renderMap()" class="px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] border ${zoneFilter===k ? 'bg-volt text-ink border-volt' : 'border-line text-mute hover:text-paper'}">${l}</button>`).join('');
+      drawMap();
+      document.getElementById('zoneList').innerHTML = filteredZones().map(z => `
+        <button onclick="selectZone('${z.id}')" class="w-full text-left border p-4 ${selectedZone===z.id ? 'border-volt bg-raised' : 'border-line bg-panel hover:border-mute'}">
+          <div class="flex items-start justify-between gap-2">
+            <div>
+              <div class="font-display text-2xl leading-none">${z.name}</div>
+              <div class="text-[11px] uppercase tracking-[0.14em] text-mute mt-1">${z.addr}</div>
+            </div>
+            <div class="text-right shrink-0">
+              <div class="text-volt font-semibold text-sm">${z.dist}</div>
+              <div class="text-[10px] uppercase tracking-[0.14em] text-mute">${z.type}</div>
+            </div>
+          </div>
+        </button>`).join('') || '<div class="text-mute text-sm border border-line p-4">No zones match this filter.</div>';
+      if (selectedZone) renderZoneDetail();
+      else document.getElementById('zoneDetail').classList.add('hidden');
+    }
+
+    function selectZone(id) {
+      selectedZone = id;
+      renderMap();
+      document.getElementById('zoneDetail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function renderZoneDetail() {
+      const z = ZONES.find(x => x.id === selectedZone);
+      if (!z) return;
+      const box = document.getElementById('zoneDetail');
+      box.classList.remove('hidden');
+      box.innerHTML = `
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <div class="text-[11px] uppercase tracking-[0.2em] text-volt">Selected · Demo location</div>
+            <h3 class="font-display text-5xl leading-none mt-1">${z.name}</h3>
+            <p class="text-mute mt-2">${z.addr} · ${z.dist} from demo pin “YOU”</p>
+          </div>
+          <div class="text-right">
+            <div class="font-display text-3xl">${z.cap}</div>
+            <div class="text-[11px] uppercase tracking-[0.16em] text-mute">Capacity</div>
+          </div>
+        </div>
+        <p class="mt-4 text-sm leading-relaxed">${z.note}</p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          ${z.types.map(t => `<span class="text-[10px] uppercase tracking-[0.16em] border border-line px-2 py-1">${t}</span>`).join('')}
+        </div>
+        <div class="mt-5 flex flex-wrap gap-2">
+          <button onclick="alert('Demo only: turn-by-turn routing is not connected. In a production build this would open maps to ${z.addr.replace(/'/g, '')}.')" class="bg-volt text-ink font-display text-2xl px-5 py-2">NAVIGATE (DEMO)</button>
+          <a href="tel:911" class="border border-signal text-signal font-display text-2xl px-5 py-2 hover:bg-signal hover:text-ink">NEED HELP</a>
+        </div>
+      `;
+    }
+
+    function renderContacts() {
+      document.getElementById('officialContacts').innerHTML = OFFICIAL.map(c => `
+        <a href="${c.href}" class="flex items-center justify-between border border-line bg-panel p-4 hover:border-volt">
+          <div>
+            <div class="font-display text-2xl leading-none">${c.name}</div>
+            <div class="text-[11px] uppercase tracking-[0.14em] text-mute mt-1">${c.hint}</div>
+          </div>
+          <div class="font-semibold text-volt">${c.num}</div>
+        </a>`).join('');
+      renderPersonal();
+    }
+
+    function getPersonal() {
+      try { return JSON.parse(localStorage.getItem('sp-contacts') || '[]'); } catch { return []; }
+    }
+    function setPersonal(list) { localStorage.setItem('sp-contacts', JSON.stringify(list)); }
+
+    function renderPersonal() {
+      const list = getPersonal();
+      const root = document.getElementById('personalContacts');
+      if (!list.length) {
+        root.innerHTML = '<div class="border border-dashed border-line p-4 text-sm text-mute">No personal contacts yet. Add a family member or out-of-area check-in person.</div>';
+        return;
+      }
+      root.innerHTML = list.map((c, i) => `
+        <div class="flex items-center justify-between border border-line bg-panel p-4">
+          <div>
+            <div class="font-display text-2xl leading-none">${esc(c.name)}</div>
+            <div class="text-[11px] uppercase tracking-[0.14em] text-mute mt-1">${esc(c.rel || 'Contact')}</div>
+          </div>
+          <div class="flex items-center gap-3">
+            <a href="tel:${esc(c.phone)}" class="text-volt font-semibold">${esc(c.phone)}</a>
+            <button onclick="removeContact(${i})" class="text-[11px] uppercase tracking-[0.14em] text-mute hover:text-signal">Remove</button>
+          </div>
+        </div>`).join('');
+    }
+
+    function esc(s) {
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+    }
+
+    function toggleAddContact(on) {
+      document.getElementById('addContactForm').classList.toggle('hidden', !on);
+    }
+
+    document.getElementById('addContactForm').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const name = document.getElementById('cName').value.trim();
+      const rel = document.getElementById('cRel').value.trim();
+      const phone = document.getElementById('cPhone').value.trim();
+      if (!name || !phone) return;
+      const list = getPersonal();
+      list.push({ name, rel, phone });
+      setPersonal(list);
+      e.target.reset();
+      toggleAddContact(false);
+      renderPersonal();
+    });
+
+    function removeContact(i) {
+      const list = getPersonal();
+      list.splice(i, 1);
+      setPersonal(list);
+      renderPersonal();
+    }
+
+    function prepState() {
+      try { return JSON.parse(localStorage.getItem('sp-prep') || '{}'); } catch { return {}; }
+    }
+    function savePrep(s) { localStorage.setItem('sp-prep', JSON.stringify(s)); }
+
+    function allPrepIds() {
+      const ids = [];
+      PREP.forEach((g, gi) => g.items.forEach((_, ii) => ids.push(gi + '-' + ii)));
+      return ids;
+    }
+
+    function renderPrep() {
+      const state = prepState();
+      const ids = allPrepIds();
+      const done = ids.filter(id => state[id]).length;
+      const pct = ids.length ? Math.round(done / ids.length * 100) : 0;
+      document.getElementById('prepPct').textContent = pct + '%';
+      document.getElementById('prepCount').textContent = done + ' / ' + ids.length + ' done';
+      const circ = 2 * Math.PI * 30;
+      document.getElementById('prepRing').style.strokeDashoffset = String(circ - (pct / 100) * circ);
+      const hint = document.getElementById('homePrepHint');
+      if (hint) hint.textContent = done ? (done + ' of ' + ids.length + ' prep items complete') : 'Build your kit and plan';
+
+      const cats = ['All', ...PREP.map(p => p.cat)];
+      document.getElementById('prepFilters').innerHTML = cats.map(c => `
+        <button onclick="prepFilter='${c}'; renderPrep()" class="px-3 py-1.5 text-[11px] uppercase tracking-[0.16em] border ${prepFilter===c ? 'bg-volt text-ink border-volt' : 'border-line text-mute hover:text-paper'}">${c}</button>`).join('');
+
+      document.getElementById('prepList').innerHTML = PREP.filter(g => prepFilter === 'All' || prepFilter === g.cat).map((g, gi) => {
+        const realGi = PREP.indexOf(g);
+        const gDone = g.items.filter((_, ii) => state[realGi + '-' + ii]).length;
+        return `
+          <div>
+            <div class="flex items-end justify-between mb-2">
+              <h3 class="font-display text-4xl">${g.cat.toUpperCase()}</h3>
+              <span class="text-[11px] uppercase tracking-[0.16em] text-mute">${gDone}/${g.items.length}</span>
+            </div>
+            <div class="border border-line divide-y divide-line">
+              ${g.items.map((item, ii) => {
+                const id = realGi + '-' + ii;
+                const on = !!state[id];
+                return `
+                  <label class="check-item flex items-start gap-3 p-3.5 bg-panel hover:bg-raised cursor-pointer">
+                    <input type="checkbox" ${on ? 'checked' : ''} onchange="togglePrep('${id}')" />
+                    <span class="check-box">${on ? '✓' : ''}</span>
+                    <span class="check-label text-sm sm:text-[15px] leading-snug pt-0.5">${item}</span>
+                  </label>`;
+              }).join('')}
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function togglePrep(id) {
+      const s = prepState();
+      s[id] = !s[id];
+      savePrep(s);
+      renderPrep();
+    }
+
+    function resetPrep() {
+      if (!confirm('Clear all checklist progress on this device?')) return;
+      localStorage.removeItem('sp-prep');
+      renderPrep();
+    }
+
+    function openSOS() {
+      document.getElementById('copyNote').classList.add('hidden');
+      document.getElementById('sosModal').classList.remove('hidden');
+    }
+    function closeSOS() { document.getElementById('sosModal').classList.add('hidden'); }
+
+    function copySafeMsg() {
+      const msg = 'I am SAFE. This is a SafePath check-in from Demo City. I do not need help right now. I will update if that changes.';
+      navigator.clipboard.writeText(msg).then(() => {
+        document.getElementById('copyNote').classList.remove('hidden');
+      }).catch(() => {
+        prompt('Copy this message:', msg);
+      });
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') closeSOS();
+    });
+
+    buildNav();
+    renderPrep();
+  </script>
+</body>
+</html>
